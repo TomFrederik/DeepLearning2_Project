@@ -113,4 +113,3 @@ dependencies:
     - repackage==0.7.3
     - soupsieve==2.3.2.post1
     - yacs==0.1.8
-prefix: /home/lcur1390/.conda/envs/our_cgn
