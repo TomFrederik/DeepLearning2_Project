@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-gdown "https://drive.google.com/u/0/uc?id=1VkKexkWh5SeB8fgxAZxLKgmmvDXhVYUy&export=downloadl"
+gdown "https://drive.google.com/uc?id=1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ"
 mv u2net.pth imagenet/weights
 
 gdown "https://drive.google.com/u/0/uc?id=12yVFHPUjKmUFGnO2D4xVlTSpF8CUj136&export=download"
