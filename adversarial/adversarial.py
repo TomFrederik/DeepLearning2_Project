@@ -63,8 +63,8 @@ for inputs, labels in loader:
         images_so_far += 1
         ax = plt.subplot(4, 8, images_so_far)
         ax.axis("off")
-        ax.set_title(f"{preds[j]}")
-        utils.imshow(inputs.cpu().data[j])
+        ax.set_title(f"{adv_preds[j]}")
+        utils.imshow(adv_images.cpu().data[j])
 
     break
 

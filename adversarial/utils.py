@@ -98,7 +98,6 @@ def train_model(model, train_loader, test_loader, epochs=25):
 
     # load best model weights
     model.load_state_dict(best_model_weights)
-    utils.visualize_preds(model, test_loader)
 
     return model
 
@@ -134,9 +133,6 @@ def visualize_preds(model, val_loader):
 def imshow(inp, title=None):
     """Imshow for Tensor."""
     inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.1307, 0.1307, 0.1307])
-    std = np.array([0.3081, 0.3081, 0.3081])
-    inp = std * inp + mean
     inp = np.clip(inp, 0, 1)
     plt.imshow(inp)
     if title is not None:
