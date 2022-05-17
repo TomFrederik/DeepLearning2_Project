@@ -21,6 +21,8 @@ tensorboardx = "==2.1"
 scipy = "==1.6.0"
 requests = "==2.25.1"
 matplotlib = "==3.3.3"
+torchattacks = "*"
+mypy = "==0.950"
 
 [dev-packages]
 gdown = "*"
