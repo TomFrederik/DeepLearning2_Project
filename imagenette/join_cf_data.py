@@ -9,13 +9,12 @@ def join_datasets(folder):
     
     # Get the list of folders
     folders = os.listdir(folder)
-    folders = [int(f) for f in folders]
     folders.sort()
     
     # Get the list of labels
     labels = []
-    for f in folders:
-        label_path = folder + '/' + str(f) + '/labels.csv'
+    for class_folder in folders:
+        label_path = os.path.join(folder, class_folder, 'labels.csv')
         label_df = pd.read_csv(label_path)
         labels.append(label_df)
     
@@ -30,19 +29,17 @@ def join_datasets(folder):
 
     # Get the list of images
     images = []
-    for f in folders:
-        image_path = folder + '/' + str(f) + '/ims'
+    for class_folder in folders:
+        image_path = os.path.join(folder, class_folder, 'ims')
         image_files = os.listdir(image_path)
         for image_file in image_files:
-            image_path = folder + '/' + str(f) + '/ims/' + image_file
-            images.append(image_path)
+            images.append(os.path.join(image_path, image_file))
     
     # Copy the images to a single directory
-    os.makedirs(folder + '/all')
+    os.makedirs(folder + '/ims', exist_ok=True)
     for i, image_path in enumerate(images):
         image_file = f"{i}.jpg"
         os.system('cp ' + image_path + ' ' + folder + '/ims/' + image_file)
-    
     # Save the labels
     labels.to_csv(folder + '/labels.csv')
     

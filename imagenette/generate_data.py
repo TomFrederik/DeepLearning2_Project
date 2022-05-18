@@ -141,7 +141,7 @@ BACKGROUNDS = [7, 9, 20, 30, 35, 46, 50, 65, 72, 93, 96, 97, 119, 133, 147, 337,
 
 def sample_classes(mode, classes=None):
     if mode == 'random':
-        return np.random.randint(0, 1000, 3).tolist()
+        return np.random.choice([0, 217, 482, 491, 497, 566, 569, 571, 574, 701], replace=True).tolist()
 
     elif mode == 'best_classes':
         return [np.random.choice(MASKS),
@@ -186,7 +186,7 @@ def main(args):
         for i in trange(args.n_data):
             # sample class vector and set up the save path
             ys = sample_classes(args.mode, args.classes)
-            im_name = f'{args.run_name}_{i:07}'
+            im_name = f'{i:07}'
 
             if args.interp:
                 # interpolation between the first and second class in the class vector
