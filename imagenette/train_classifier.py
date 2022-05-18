@@ -8,6 +8,7 @@ import shutil
 import warnings
 import pathlib
 import time
+import logging
 
 import repackage
 repackage.up()
@@ -28,7 +29,7 @@ from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
 from imagenette.dataloader import (get_imagenette_dls, get_cf_imagenette_dls,
-                                 get_cue_conflict_dls, get_in9_dls)
+                                 get_cue_conflict_dls) # , get_in9_dls
 from imagenette.models import InvariantEnsemble
 from utils import eval_bg_gap, eval_shape_bias
 
@@ -172,13 +173,13 @@ def main_worker(gpu, ngpus_per_node, args):
     train_loader, val_loader, train_sampler = get_imagenette_dls(args.distributed, args.batch_size, args.workers)
     cf_train_loader, cf_val_loader, cf_train_sampler = get_cf_imagenette_dls(args.cf_data, args.cf_ratio, len(train_loader), args.distributed, args.batch_size, args.workers)
     dl_shape_bias = get_cue_conflict_dls(args.batch_size, args.workers)
-    dls_in9 = get_in9_dls(args.distributed, args.batch_size, args.workers, ['mixed_rand', 'mixed_same'])
+    # dls_in9 = get_in9_dls(args.distributed, args.batch_size, args.workers, ['mixed_rand', 'mixed_same'])
 
     
     # eval before training
     if not args.resume:
         metrics = validate(model, val_loader, cf_val_loader,
-                               dl_shape_bias, dls_in9, args)
+                               dl_shape_bias, args) #, dls_in9
         if args.evaluate: return
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                     and args.rank % ngpus_per_node == 0):
@@ -204,7 +205,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # evaluate on validation set
         metrics = validate(model, val_loader, cf_val_loader,
-                               dl_shape_bias, dls_in9, args)
+                               dl_shape_bias, args) # , dls_in9
 
         # remember best acc@1 and save checkpoint
         # acc1_overall = metrics['acc1/0_overall'] <-- code from original repo, but unclear where/how that would be computed. Raises a KeyError
@@ -286,9 +287,13 @@ def train(train_loader, cf_train_loader, model, criterion, optimizer, epoch, arg
 
         # compute output for counterfactuals
         out_cf = model(data_cf['ims'])
-        loss_cf = criterion(out_cf['shape_preds'], data_cf['shape_labels'])
-        loss_cf += criterion(out_cf['texture_preds'], data_cf['texture_labels'])
-        loss_cf += criterion(out_cf['bg_preds'], data_cf['bg_labels'])
+        loss_cf = 0
+        if not args.disable_shape:
+            loss_cf += criterion(out_cf['shape_preds'], data_cf['shape_labels'])
+        if not args.disable_text:
+            loss_cf += criterion(out_cf['texture_preds'], data_cf['texture_labels'])
+        if not args.disable_bg:
+            loss_cf += criterion(out_cf['bg_preds'], data_cf['bg_labels'])
 
         # compute gradient
         loss_cf.backward()
@@ -323,12 +328,12 @@ def train(train_loader, cf_train_loader, model, criterion, optimizer, epoch, arg
             progress.display(i)
 
 
-def validate(model, val_loader, cf_val_loader, dl_shape_bias, dls_in9, args):
+def validate(model, val_loader, cf_val_loader, dl_shape_bias, args):
     real_accs = validate_imagenette(val_loader, model, args)
     cf_accs = validate_counterfactual(cf_val_loader, model, args)
     shapes_biases = validate_shape_bias(model, dl_shape_bias)
-    in_9_accs = validate_in_9(dls_in9, model)
-    val_res = {**real_accs, **cf_accs, **shapes_biases, **in_9_accs}
+    # in_9_accs = validate_in_9(dls_in9, model)
+    val_res = {**real_accs, **cf_accs, **shapes_biases}#, **in_9_accs}
 
     # Sync up
     if args.multiprocessing_distributed:
@@ -610,6 +615,14 @@ if __name__ == '__main__':
     parser.add_argument('--cf_ratio', default=1.0, type=float,
                         help='Ratio of CF/Real data')
 
+    parser.add_argument('--disable_bg', action='store_true', help='Disable background loss')
+    parser.add_argument('--disable_shape', action='store_true', help='Disable shape loss')
+    parser.add_argument('--disable_text', action='store_true', help='Disable texture loss')
+
     args = parser.parse_args()
     print(args)
+
+    if args.disable_bg and args.disable_shape and args.disable_text:
+        logging.warning('You disabled all CF losses. Are you sure you wanted to do that?')
+
     main(args)
