@@ -141,7 +141,7 @@ BACKGROUNDS = [7, 9, 20, 30, 35, 46, 50, 65, 72, 93, 96, 97, 119, 133, 147, 337,
 
 def sample_classes(mode, classes=None):
     if mode == 'random':
-        return np.random.choice([0, 217, 482, 491, 497, 566, 569, 571, 574, 701], replace=True).tolist()
+        return np.random.choice([0, 217, 482, 491, 497, 566, 569, 571, 574, 701], 3, replace=True).tolist()
 
     elif mode == 'best_classes':
         return [np.random.choice(MASKS),
