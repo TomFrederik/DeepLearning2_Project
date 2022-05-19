@@ -296,7 +296,8 @@ def train(train_loader, cf_train_loader, model, criterion, optimizer, epoch, arg
             loss_cf += criterion(out_cf['bg_preds'], data_cf['bg_labels'])
 
         # compute gradient
-        loss_cf.backward()
+        if not all([args.disable_shape, args.disable_text, args.disable_bg]):
+            loss_cf.backward()
 
         # measure accuracy and record loss
         sz = len(data['ims'])

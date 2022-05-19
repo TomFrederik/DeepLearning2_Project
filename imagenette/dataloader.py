@@ -187,7 +187,6 @@ class ImagenetteCounterfactual(Dataset):
             df = pd.read_csv(join(sub, 'labels.csv'), index_col=0)
             df['abs_path'] = sub + '/ims/' + df['im_name']# + f"_{mode}.jpg"
             dfs.append(df)
-
         return pd.concat(dfs)
 
     def __getitem__(self, idx):
