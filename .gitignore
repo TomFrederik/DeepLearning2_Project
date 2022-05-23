@@ -30,5 +30,5 @@ tags
 !mnists/experiments/cgn_wildlife_MNIST/weights/ckp.pth
 !imagenet/data/u_fixed.pth
 
-adversarial/data
-adversarial/weights
+adversarial/test/data
+adversarial/test/weights
