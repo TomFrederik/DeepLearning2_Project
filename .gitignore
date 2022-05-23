@@ -1,6 +1,8 @@
 mnists/data/*
 !mnists/data/textures/
 imagenet/data/*
+imagenette/data/*
+imagenette/imagenette/data/*
 
 imagenet/experiments/*
 !imagenet/experiments/.placeholder

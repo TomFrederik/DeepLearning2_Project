@@ -147,6 +147,9 @@ def fit(cfg, cgn, opts, losses):
             pbar.set_description(msg)
 
 def main(cfg):
+    print(f'Starting main(), cuda available: {torch.cuda.is_available()}')
+    print(f'Num available GPUs: {torch.cuda.device_count()}')
+    
     # model init
     cgn = CGN(
         batch_sz=cfg.TRAIN.BATCH_SZ,
@@ -176,6 +179,7 @@ def main(cfg):
 
     # push to device and train
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"device = {device}")
     cgn = cgn.to(device)
     losses = (l.to(device) for l in losses)
 
