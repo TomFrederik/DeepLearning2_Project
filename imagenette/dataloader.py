@@ -300,7 +300,7 @@ def get_imagenette_dls(distributed, batch_size, workers):
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               shuffle=(train_sampler is None), num_workers=workers,
                               pin_memory=True, sampler=train_sampler)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,
                             num_workers=workers, pin_memory=True, sampler=val_sampler)
 
     return train_loader, val_loader, train_sampler
