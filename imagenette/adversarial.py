@@ -18,7 +18,7 @@ from os.path import join
 
 import adv_utils
 from typing import Any, Tuple, List, Iterable
-
+import wandb
 
 class AvgPredGetter(nn.Module):
     def __init__(self, model: nn.Module) -> None:
@@ -55,6 +55,7 @@ def evaluate_model_attack(
     eps_range = []
 
     eps_range = np.linspace(0, 1, 5)
+    # eps_range = np.linspace(0, 1, 5)
 
     pbar = tqdm(eps_range, desc="eps")
 
@@ -99,7 +100,7 @@ if __name__ == "__main__":
 
     os.makedirs("adversarial", exist_ok=True)
 
-    classifier_name = "classifier_2022_05_19_07_26_texture_inv"
+    classifier_name = "classifier_2022_05_25_16_39_indist"
 
     path = join("imagenette", "experiments", classifier_name)
 
@@ -114,9 +115,12 @@ if __name__ == "__main__":
     args["batch_size"] = 16
     train_loader, val_loader, train_sampler = adv_utils.get_dataloaders(args)
 
-    pgd_accuracies, pgd_adv_accuracies, eps_range = evaluate_model_attack("pgd", model, val_loader, steps=20)
+    pgd_accuracies, pgd_adv_accuracies, eps_range = evaluate_model_attack("pgd", model, val_loader, steps=50)
     fgsm_accuracies, fgsm_adv_accuracies, eps_range = evaluate_model_attack("fgsm", model, val_loader)
 
+    wandb.init(project="DL2", entity="xinyichen", config = args, name ="adversarial" +"_"+str(eps_range))
+
+    fig = plt.figure()
     plt.title(f"PGD and FGSM accuracy")
     plt.plot(eps_range, pgd_adv_accuracies, label=f"PGD Adv. Acc. (orig. acc: {np.mean(pgd_accuracies):.3f})")
     plt.plot(eps_range, fgsm_adv_accuracies, label=f"FGSM Adv. Acc. (orig. acc: {np.mean(fgsm_accuracies):.3f})")
@@ -125,3 +129,18 @@ if __name__ == "__main__":
     plt.ylim([0, 1])
     plt.legend()
     plt.show()
+    plt.savefig(f"adv_{classifier_name}_{str(eps_range)}.jpg")
+
+    wandb.Image(fig)
+
+    data = [[x, y] for (x, y) in zip(eps_range, pgd_adv_accuracies)]
+    table = wandb.Table(data=data, columns = ["eps", "accuracy"])
+    wandb.log({f"PGD Adv. Acc. (orig. acc: {np.mean(pgd_accuracies):.3f})": 
+                wandb.plot.line(table, "eps", "accuracy",
+                title="PGD  accuracy")})
+
+    data = [[x, y] for (x, y) in zip(eps_range, fgsm_adv_accuracies)]
+    table = wandb.Table(data=data, columns = ["eps", "accuracy"])
+    wandb.log({f"FGSM Adv. Acc. (orig. acc: {np.mean(fgsm_accuracies):.3f})": 
+                wandb.plot.line(table, "eps", "accuracy",
+                title="FGSM accuracy")})
