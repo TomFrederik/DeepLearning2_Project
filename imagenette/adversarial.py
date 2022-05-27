@@ -1,3 +1,4 @@
+from numpy.lib import utils
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
@@ -15,6 +16,7 @@ from tqdm import tqdm
 
 import os
 from os.path import join
+import argparse
 
 import adv_utils
 from typing import Any, Tuple, List, Iterable
@@ -45,7 +47,9 @@ def get_attack(
 
 def evaluate_model_attack(
     attack_name: str, model: nn.Module,
-    dataloader: DataLoader[Any], **kwargs: Any
+    dataloader: DataLoader[Any], 
+    classifier_name,
+    **kwargs: Any
 ) -> Tuple[List[float], List[float], np.ndarray]:
 
     device = torch.device("cuda") if torch.cuda.is_available else torch.device("cpu")
@@ -68,7 +72,7 @@ def evaluate_model_attack(
         atk = get_attack(attack_name, model)
         atk = atk(model, eps=eps, **kwargs)
 
-        for _ in tqdm(range(16), desc="batches"):
+        for idx_batch in tqdm(range(16), desc="batches"):
             batch = next(iter(dataloader))
 
             images, labels = batch["ims"], batch["labels"]
@@ -78,6 +82,32 @@ def evaluate_model_attack(
             outputs = model(images)
 
             adv_images = atk(images, labels)
+            
+            if eps == eps_range[-1]:
+                dir_path = os.path.join("imagenette", "adversarial", classifier_name, attack_name)
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+
+                adv_path = os.path.join(dir_path,
+                                        f"{idx_batch}_adv.jpg")
+                normal_path = os.path.join(dir_path, 
+                                        f"{idx_batch}_normal.jpg")
+                
+
+                torchvision.utils.save_image(adv_images.detach().cpu(),
+                                             adv_path,
+                                             nrow=2)
+                torchvision.utils.save_image(images.detach().cpu(),
+                                             normal_path,
+                                             nrow=2)
+            # for i in range(adv_images.shape[0]):
+            #     img = adv_images[i]
+                
+            #     adv_path = os.path.join("imagenette", "adversarial", 
+            #                         f"{idx_batch}_{labels}")
+            #     torchvision.utils.save_image(img.detach().cpu(),
+            #                                 adv_path,
+            #                                 normalize=True)
 
             adv_outputs = model(adv_images)
 
@@ -98,9 +128,21 @@ def evaluate_model_attack(
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--classifier',type = str,
+                        default= "classifier_2022_05_25_16_39_indist", 
+                        help = "classifier name")
+
+    parser.add_argument('--pgd_steps',type = int,
+                        default= 20, 
+                        help = "pgd training steps")
+
+    paras = parser.parse_args()
+
     os.makedirs("adversarial", exist_ok=True)
 
-    classifier_name = "classifier_2022_05_25_16_39_indist"
+    classifier_name = paras.classifier
 
     path = join("imagenette", "experiments", classifier_name)
 
@@ -115,10 +157,11 @@ if __name__ == "__main__":
     args["batch_size"] = 16
     train_loader, val_loader, train_sampler = adv_utils.get_dataloaders(args)
 
-    pgd_accuracies, pgd_adv_accuracies, eps_range = evaluate_model_attack("pgd", model, val_loader, steps=50)
-    fgsm_accuracies, fgsm_adv_accuracies, eps_range = evaluate_model_attack("fgsm", model, val_loader)
+    pgd_accuracies, pgd_adv_accuracies, eps_range = evaluate_model_attack("pgd", model, val_loader, classifier_name, steps=paras.pgd_steps)
+    fgsm_accuracies, fgsm_adv_accuracies, eps_range = evaluate_model_attack("fgsm", model, val_loader, classifier_name)
 
-    wandb.init(project="DL2", entity="xinyichen", config = args, name ="adversarial" +"_"+str(eps_range))
+    wandb.init(project="DL2", entity="xinyichen", config = args, 
+               name ="adversarial" + "_" + str(eps_range))
 
     fig = plt.figure()
     plt.title(f"PGD and FGSM accuracy")
@@ -129,7 +172,11 @@ if __name__ == "__main__":
     plt.ylim([0, 1])
     plt.legend()
     plt.show()
-    plt.savefig(f"adv_{classifier_name}_{str(eps_range)}.jpg")
+
+    if not os.path.exists('adv_plots'):
+        os.makedirs('adv_plots')
+    plt.savefig(os.path.join('adv_plots',\
+        f"{classifier_name.split('_')[-1]}_{str(paras.pgd_steps)}_{str(len(eps_range))}.jpg"))
 
     wandb.Image(fig)
 
