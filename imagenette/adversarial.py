@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
+import pickle
 
 import os
 from os.path import join
@@ -141,6 +142,8 @@ if __name__ == "__main__":
                         default=5, help="Eps step size")
     parser.add_argument("--latex", type=bool, default=0,
                         help="Indicate if you have latex installed on system")
+    parser.add_argument("--plot", type=bool, default=1,
+                        help="If we should plot")
 
     args = parser.parse_args()
 
@@ -163,18 +166,22 @@ if __name__ == "__main__":
     # Prepare texture invariant and in distribution classifiers
     texture_inv_path = join("imagenette", "experiments", "classifier_texture_inv")
     indist_path = join("imagenette", "experiments", "classifier_indist")
+    shape_path = join("imagenette", "experiments", "classifier_shape")
 
     texture_inv_model, _ = adv_utils.load_model(texture_inv_path)
     indist_model, _ = adv_utils.load_model(indist_path)
+    shape_model, _ = adv_utils.load_model(shape_path)
     og_model = ResNet50Model(device)
 
     texture_inv_model = texture_inv_model.to(device)
     indist_model = indist_model.to(device)
+    shape_model = shape_model.to(device)
     og_model = og_model.to(device)
 
     # We wrap models in one that only returns the average prediction
     texture_inv_model = AvgPredGetter(texture_inv_model)
     indist_model = AvgPredGetter(indist_model)
+    shape_model = AvgPredGetter(shape_model)
 
     inv_accuracies, inv_adv_accuracies, eps_range = (
         evaluate_model_attack(attack_name, texture_inv_model, val_loader,
@@ -184,28 +191,29 @@ if __name__ == "__main__":
         evaluate_model_attack(attack_name, indist_model, val_loader,
                               eps_steps=args.eps_steps)
     )
+    shape_accuracies, shape_adv_accuracies, eps_range = (
+        evaluate_model_attack(attack_name, shape_model, val_loader,
+                              eps_steps=args.eps_steps)
+    )
     og_accuracies, og_adv_accuracies, eps_range = (
         evaluate_model_attack(attack_name, og_model, val_loader,
                               eps_steps=args.eps_steps)
     )
 
-    # Plot everything and save it
-    fig = plt.figure()
-    plt.title(f"{attack_name.upper()} accuracy curve")
-    plt.plot(eps_range, inv_adv_accuracies,
-             label=f"Texture invariant (orig. acc: {np.mean(inv_accuracies):.3f})")
-    plt.plot(eps_range, indist_adv_accuracies,
-             label=f"In distribution (orig. acc: {np.mean(indist_accuracies):.3f})")
-    plt.plot(eps_range, og_adv_accuracies,
-             label=f"Resnet50 (orig. acc: {np.mean(og_accuracies):.3f})")
-    plt.xlabel("Epsilon")
-    plt.ylabel("Accuracy")
-    plt.ylim([0, 1])
-    plt.legend(loc="upper right")
-    fig.set_size_inches(5, 4)
+    accuracies = [inv_accuracies, indist_accuracies,
+                  shape_accuracies, og_accuracies]
+    adv_accuracies = [inv_adv_accuracies, indist_adv_accuracies,
+                      shape_adv_accuracies, og_adv_accuracies]
+    names = ["Invariant", "In Dist.", "Shape", "ResNet50"]
+
+    data_dict = {"accuracies": accuracies,
+                 "adv_accuracies": adv_accuracies,
+                 "names": names}
 
     os.makedirs('imagenette/adv_plots', exist_ok=True)
-    plt.savefig(os.path.join('imagenette/adv_plots',
-                f"{attack_name}_{args.eps_steps}.png"),
-                dpi=100, bbox_inches="tight")
-    plt.show()
+    with open(join("imagenette", "adv_plots", f"{attack_name}_{args.eps_steps}.pkl"), "wb") as f:
+        pickle.dump(data_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    if args.plot:
+        adv_utils.plot_results(attack_name, eps_range, args.eps_steps,
+                               accuracies, adv_accuracies, names)

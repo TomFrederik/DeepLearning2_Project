@@ -8,13 +8,43 @@ import json
 from collections import OrderedDict
 import torchvision
 
-from typing import Union, Dict, Tuple, Any
+import numpy as np
+import matplotlib.pyplot as plt
+
+from typing import Union, Dict, Tuple, Any, List
 
 import repackage
 repackage.up()
 from imagenette.dataloader import (get_imagenette_dls, get_cf_imagenette_dls,
                                    get_cue_conflict_dls) # , get_in9_dls
 from imagenette.models import InvariantEnsemble
+
+
+def plot_results(
+    attack_name: str, eps_range: np.ndarray, eps_steps: int,
+    accuracies: List[np.ndarray],
+    adv_accuracies: List[np.ndarray],
+    names: List[str]
+) -> None:
+
+    # Plot everything and save it
+    fig = plt.figure()
+    plt.title(f"{attack_name.upper()} accuracy curve")
+
+    for accs, adv_accs, name in zip(accuracies, adv_accuracies, names):
+        plt.plot(eps_range, adv_accs,
+                 label=f"{name}: (orig. acc: {np.mean(accs):.3f})")
+
+    plt.xlabel("Epsilon")
+    plt.ylabel("Accuracy")
+    plt.ylim([0, 1])
+    plt.legend(loc="upper right")
+    fig.set_size_inches(5, 4)
+
+    plt.savefig(os.path.join('imagenette/adv_plots',
+                             f"{attack_name}_{eps_steps}.png"),
+                dpi=100, bbox_inches="tight")
+    plt.show()
 
 
 def visualize_batch(
