@@ -6,42 +6,33 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import json
 from collections import OrderedDict
+import torchvision
 
 from typing import Union, Dict, Tuple, Any
 
 import repackage
 repackage.up()
 from imagenette.dataloader import (get_imagenette_dls, get_cf_imagenette_dls,
-                                 get_cue_conflict_dls) # , get_in9_dls
+                                   get_cue_conflict_dls) # , get_in9_dls
 from imagenette.models import InvariantEnsemble
 
 
-def visualize_preds(model: nn.Module, val_loader: DataLoader[Any]) -> None:
-    model.eval()
-    images_so_far = 0
-    device = torch.device("cuda") if torch.cuda.is_available else torch.device("cpu")
+def visualize_batch(
+    dir_path: str, attack_name: str, eps_step: int,
+    images: torch.Tensor, adv_images: torch.Tensor
+) -> None:
 
-    num_images = 16
+    adv_path = os.path.join(dir_path,
+                            f"{eps_step}_adv.jpg")
+    normal_path = os.path.join(dir_path,
+                               f"{eps_step}_normal.jpg")
 
-    fig = plt.figure()
-
-    with torch.no_grad():
-        for i, (inputs, labels) in enumerate(val_loader):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-
-            for j in range(inputs.shape[0]):
-                images_so_far += 1
-                ax = plt.subplot(num_images // 2, 2, images_so_far)
-                ax.axis("off")
-                ax.set_title(f"predicted: {preds[j]}")
-                imshow(inputs.cpu().data[j])
-
-                if images_so_far == num_images:
-                    return
+    torchvision.utils.save_image(adv_images.detach().cpu(),
+                                 adv_path,
+                                 nrow=2)
+    torchvision.utils.save_image(images.detach().cpu(),
+                                 normal_path,
+                                 nrow=2)
 
 
 def load_model(
@@ -72,8 +63,8 @@ def load_model(
     return model, args
 
 
-def get_dataloaders(args: Dict[str, Any]):
-    return get_imagenette_dls(args["distributed"], args["batch_size"], args["workers"])
+def get_dataloaders(batch_size: int, num_workers: int) -> Any:
+    return get_imagenette_dls(False, batch_size, num_workers)
 
 
 if __name__ == "__main__":
