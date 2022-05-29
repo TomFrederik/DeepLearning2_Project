@@ -116,3 +116,5 @@ dependencies:
     - soupsieve==2.3.2.post1
     - tensorboardx==2.5
     - yacs==0.1.8
+    - SciencePlots
+    - torchattacks
