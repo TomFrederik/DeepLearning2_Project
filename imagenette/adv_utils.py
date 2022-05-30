@@ -43,7 +43,7 @@ def plot_results(
 
     plt.savefig(os.path.join('imagenette/adv_plots',
                              f"{attack_name}_{eps_steps}.png"),
-                dpi=100, bbox_inches="tight")
+                dpi=200, bbox_inches="tight")
     plt.show()
 
 

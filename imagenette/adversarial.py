@@ -24,20 +24,6 @@ import adv_utils
 from typing import Any, Tuple, List, Iterable, Dict
 
 
-class ResNet50Model(nn.Module):
-    """
-    Wrapper around ResNet50 model that only returns
-    the values for the 10 classes we care about
-    """
-    def __init__(self, device: torch.device) -> None:
-        super().__init__()
-        self.model = models.resnet50(pretrained=True).to(device)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.model(x)  # type: torch.Tensor
-        return out
-
-
 class AvgPredGetter(nn.Module):
     def __init__(self, model: nn.Module) -> None:
         super().__init__()
@@ -167,11 +153,12 @@ if __name__ == "__main__":
     texture_inv_path = join("imagenette", "experiments", "classifier_texture_inv")
     indist_path = join("imagenette", "experiments", "classifier_indist")
     shape_path = join("imagenette", "experiments", "classifier_shape")
+    og_path = join("imagenette", "experiments", "classifier_resnet50")
 
     texture_inv_model, _ = adv_utils.load_model(texture_inv_path)
     indist_model, _ = adv_utils.load_model(indist_path)
     shape_model, _ = adv_utils.load_model(shape_path)
-    og_model = ResNet50Model(device)
+    og_model, _ = adv_utils.load_model(og_path)
 
     texture_inv_model = texture_inv_model.to(device)
     indist_model = indist_model.to(device)
@@ -182,6 +169,7 @@ if __name__ == "__main__":
     texture_inv_model = AvgPredGetter(texture_inv_model)
     indist_model = AvgPredGetter(indist_model)
     shape_model = AvgPredGetter(shape_model)
+    og_model = AvgPredGetter(og_model)
 
     inv_accuracies, inv_adv_accuracies, eps_range = (
         evaluate_model_attack(attack_name, texture_inv_model, val_loader,
