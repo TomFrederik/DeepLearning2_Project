@@ -32,3 +32,5 @@ tags
 
 adversarial/test/data
 adversarial/test/weights
+imagenette/adversarial
+imagenette/adv_plots
