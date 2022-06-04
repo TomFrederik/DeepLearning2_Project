@@ -29,10 +29,8 @@ class PredGetter(nn.Module):
         super().__init__()
         self.model = model
         self.head_name = head_name
-        self.lim = 3
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = (x * self.lim * 2) - self.lim
         out = self.model(x)  # type: Dict[str, torch.Tensor]
         return out[self.head_name]
 
@@ -51,13 +49,13 @@ def get_attack(
 
 
 def evaluate_model_attack(
-    attack_name: str, model: nn.Module,
+    attack_name: str,
+    model: nn.Module,
     dataloader: DataLoader[Any],
     eps_steps: int = 5,
     **kwargs: Any
 ) -> Tuple[List[float], List[float], np.ndarray]:
 
-    model.eval()
     device = torch.device("cuda") if torch.cuda.is_available else torch.device("cpu")
 
     # Create folder for intermediate adversarial image saving
@@ -65,53 +63,27 @@ def evaluate_model_attack(
     os.makedirs(dir_path, exist_ok=True)
 
     accuracies = []
-    adv_accuracies = []
+    correct = 0
+    total = 0
 
-    eps_range = np.linspace(0, 0.3, eps_steps)
+    for batch in dataloader:
+        images, labels = batch["ims"], batch["labels"]
+        images, labels = images.to(device), labels.to(device)
 
-    pbar = tqdm(eps_range, desc="eps")
+        total += len(labels)
 
-    for i, eps in enumerate(pbar):
+        outputs = model(images)
 
-        dataloader_copy = deepcopy(dataloader)
+        _, preds = torch.max(outputs, 1)
 
-        correct = 0
-        adv_correct = 0
-        total = 0
+        print(preds)
+        print(labels)
 
-        atk = get_attack(attack_name, model)
-        atk = atk(model, eps=eps, **kwargs)
+        correct += ((preds == labels).sum()).cpu()
 
-        for batch in tqdm(dataloader_copy, desc="batches"):
-            images, labels = batch["ims"], batch["labels"]
-            images, labels = images.to(device), labels.to(device)
-            total += len(labels)
+    accuracy = correct / total
 
-            trafo_images = (images + model.lim) / (2 * model.lim)
-
-            outputs = model(trafo_images)
-
-            trafo_adv_images = atk(trafo_images, labels)
-            adv_images = (trafo_adv_images * 2 * model.lim) - model.lim
-
-            adv_outputs = model(trafo_adv_images)
-
-            _, preds = torch.max(outputs, 1)
-            _, adv_preds = torch.max(adv_outputs, 1)
-
-            correct += ((preds == labels).sum()).cpu()
-            adv_correct += ((adv_preds == labels).sum()).cpu()
-
-        # Only visualize the last batch for comparison sake
-        adv_utils.visualize_batch(dir_path, attack_name, i, images, adv_images)
-
-        accuracy = correct / total
-        adv_accuracy = adv_correct / total
-
-        accuracies.append(accuracy)
-        adv_accuracies.append(adv_accuracy)
-
-    return accuracies, adv_accuracies, eps_range
+    return accuracy
 
 
 if __name__ == "__main__":
@@ -151,7 +123,7 @@ if __name__ == "__main__":
     attack_name = args.attack
 
     # Prepare texture invariant and in distribution classifiers
-    head_path = join("imagenette", "experiments", "classifier_heads")
+    head_path = join("imagenette", "experiments", "classifier_indist")
     resnet50_path = join("imagenette", "experiments", "classifier_resnet50")
 
     head_model, _ = adv_utils.load_model(head_path)
@@ -161,47 +133,37 @@ if __name__ == "__main__":
     resnet_model = resnet_model.to(device)
 
     # We wrap models in one that only returns the average prediction
-    shape_model = PredGetter(head_model, "shape_preds")
-    bg_model = PredGetter(head_model, "bg_preds")
-    texture_model = PredGetter(head_model, "texture_preds")
-    avg_model = PredGetter(head_model, "avg_preds")
+    # shape_model = PredGetter(head_model, "shape_preds")
+    # bg_model = PredGetter(head_model, "bg_preds")
+    # texture_model = PredGetter(head_model, "texture_preds")
+    avg_model = PredGetter(head_model, "texture_preds")
     og_model = PredGetter(resnet_model, "avg_preds")
 
-    shape_accs, shape_adv_accs, eps_range = (
-        evaluate_model_attack(attack_name, shape_model, val_loader,
-                              eps_steps=args.eps_steps)
-    )
-    bg_accs, bg_adv_accs, eps_range = (
-        evaluate_model_attack(attack_name, bg_model, val_loader,
-                              eps_steps=args.eps_steps)
-    )
-    texture_accs, texture_adv_accs, eps_range = (
-        evaluate_model_attack(attack_name, texture_model, val_loader,
-                              eps_steps=args.eps_steps)
-    )
-    avg_accs, avg_adv_accs, eps_range = (
+    # shape_accs, shape_adv_accs, eps_range = (
+    #     evaluate_model_attack(attack_name, shape_model, val_loader,
+    #                           eps_steps=args.eps_steps)
+    # )
+    # bg_accs, bg_adv_accs, eps_range = (
+    #     evaluate_model_attack(attack_name, bg_model, val_loader,
+    #                           eps_steps=args.eps_steps)
+    # )
+    # texture_accs, texture_adv_accs, eps_range = (
+    #     evaluate_model_attack(attack_name, texture_model, val_loader,
+    #                           eps_steps=args.eps_steps)
+    # )
+    avg_acc = (
         evaluate_model_attack(attack_name, avg_model, val_loader,
                               eps_steps=args.eps_steps)
     )
 
-    og_accs, og_adv_accs, eps_range = (
-        evaluate_model_attack(attack_name, og_model, val_loader,
-                              eps_steps=args.eps_steps)
-    )
+    print(avg_acc)
 
-    accuracies = [shape_accs, bg_accs, texture_accs, avg_accs, og_accs]
-    adv_accuracies = [shape_adv_accs, bg_adv_accs, texture_adv_accs,
-                      avg_adv_accs, og_adv_accs]
-    names = ["Shape", "Background", "Texture", "Avg", "ResNet50"]
+    # og_accs, og_adv_accs, eps_range = (
+    #     evaluate_model_attack(attack_name, og_model, val_loader,
+    #                           eps_steps=args.eps_steps)
+    # )
 
-    data_dict = {"accuracies": accuracies,
-                 "adv_accuracies": adv_accuracies,
-                 "names": names}
-
-    os.makedirs('imagenette/adv_plots', exist_ok=True)
-    with open(join("imagenette", "adv_plots", f"{attack_name}_{args.eps_steps}.pkl"), "wb") as f:
-        pickle.dump(data_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    if args.plot:
-        adv_utils.plot_results(attack_name, eps_range, args.eps_steps,
-                               accuracies, adv_accuracies, names)
+    # accuracies = [shape_accs, bg_accs, texture_accs, avg_accs, og_accs]
+    # adv_accuracies = [shape_adv_accs, bg_adv_accs, texture_adv_accs,
+    #                   avg_adv_accs, og_adv_accs]
+    # names = ["Shape", "Background", "Texture", "Avg", "ResNet50"]

@@ -4,7 +4,7 @@
   "workers": 6,
   "epochs": 10,
   "start_epoch": 0,
-  "batch_size": 64,
+  "batch_size": 32,
   "lr": 0.0004,
   "momentum": 0.9,
   "weight_decay": 0.0001,
@@ -19,11 +19,11 @@
   "dist_url": "tcp://127.0.0.1:8888",
   "dist_backend": "nccl",
   "multiprocessing_distributed": false,
-  "cf_data": "imagenette/imagenette/data/random",
-  "name": "shapebased",
+  "cf_data": "imagenette/imagenette/data/indist",
+  "name": "nocgn",
   "cf_ratio": 1.0,
   "disable_bg": true,
-  "disable_shape": false,
+  "disable_shape": true,
   "disable_text": true,
   "distributed": false
 }
