@@ -54,7 +54,7 @@ def evaluate_model_attack(
     attack_name: str, model: nn.Module,
     dataloader: DataLoader[Any],
     eps_steps: int = 5,
-    **kwargs: Any
+    pgd_steps: int = 10,
 ) -> Tuple[List[float], List[float], np.ndarray]:
 
     model.eval()
@@ -67,8 +67,10 @@ def evaluate_model_attack(
     accuracies = []
     adv_accuracies = []
 
-    eps_range = np.linspace(0, 0.3, eps_steps)
-
+    if attack_name == "fgsm":
+        eps_range = np.linspace(0, 0.15, eps_steps)
+    elif attack_name == "pgd":
+        eps_range = np.linspace(0, 0.01, eps_steps)
     pbar = tqdm(eps_range, desc="eps")
 
     for i, eps in enumerate(pbar):
@@ -80,7 +82,11 @@ def evaluate_model_attack(
         total = 0
 
         atk = get_attack(attack_name, model)
-        atk = atk(model, eps=eps, **kwargs)
+
+        if attack_name == "pgd":
+            atk = atk(model, eps=eps, steps=pgd_steps)
+        else:
+            atk = atk(model, eps=eps)
 
         for batch in tqdm(dataloader_copy, desc="batches"):
             images, labels = batch["ims"], batch["labels"]
@@ -169,24 +175,24 @@ if __name__ == "__main__":
 
     shape_accs, shape_adv_accs, eps_range = (
         evaluate_model_attack(attack_name, shape_model, val_loader,
-                              eps_steps=args.eps_steps)
+                              eps_steps=args.eps_steps, pgd_steps=args.pgd_steps)
     )
     bg_accs, bg_adv_accs, eps_range = (
         evaluate_model_attack(attack_name, bg_model, val_loader,
-                              eps_steps=args.eps_steps)
+                              eps_steps=args.eps_steps, pgd_steps=args.pgd_steps)
     )
     texture_accs, texture_adv_accs, eps_range = (
         evaluate_model_attack(attack_name, texture_model, val_loader,
-                              eps_steps=args.eps_steps)
+                              eps_steps=args.eps_steps, pgd_steps=args.pgd_steps)
     )
     avg_accs, avg_adv_accs, eps_range = (
         evaluate_model_attack(attack_name, avg_model, val_loader,
-                              eps_steps=args.eps_steps)
+                              eps_steps=args.eps_steps, pgd_steps=args.pgd_steps)
     )
 
     og_accs, og_adv_accs, eps_range = (
         evaluate_model_attack(attack_name, og_model, val_loader,
-                              eps_steps=args.eps_steps)
+                              eps_steps=args.eps_steps, pgd_steps=args.pgd_steps)
     )
 
     accuracies = [shape_accs, bg_accs, texture_accs, avg_accs, og_accs]
